@@ -1,0 +1,10 @@
+# Temporary files and Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual local environment
+.venv/
+
+# Local raw data (large files excluded from Git)
+data/raw/
+*.geojson
