@@ -1,16 +1,16 @@
-# Open Sport Map
+# **Open Sport Map**
 
 An open-source mapping platform for locating freely accessible sports facilities near a specific address or location (street workout areas, football fields, basketball courts, multi-sport courts, running tracks, etc.).
 
-## Technical stack
+## **Technical stack**
 - **Data Source :** OpenStreetMap ([Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API))
 - **Base Spatiale :** PostgreSQL 16 + PostGIS
 - **Backend :** Python
 - **Frontend (Web):** [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
 
-## Quick Start (Local)
+## **Quick Start (Local)**
 
-## Project Evolution in the Future
+## **Project Evolution in the Future**
 
 ```
 V1
@@ -27,7 +27,7 @@ V1.5
 │
 ├── Data ES
 ├── sources merging
-└── data clean up
+└── data clean up (no more private POI)
        │
        ▼
 V2
@@ -38,9 +38,10 @@ V2
 └── contributions
 ```
 
-## Whole Process Explanations for me to remember
+## **Whole Process Explanation**
 
-### 1. Fetch OSM data - python script
+### **1. OSM data ETL segment**
+#### **1.1 Fetch data - python scrip**t
 
 Retrieving ```node``` (isolated point of interests) and ```way``` (polygons and surfaces) that have tags we are looking for:<br>
 - ```leisure=pitch```<sub>*[more info](https://wiki.openstreetmap.org/wiki/Tag:leisure=pitch)*</sub>
@@ -56,3 +57,12 @@ Execute the python script at the root of the project with the command: <br>
 python data/scripts/fetch_osm_data.py
 ```
 We now have the sport features data of the selected area, stored in: ``open-sport-map\data\raw\osm_sample.json``
+
+#### **1.2 Clean data - python script**
+
+We clean the retrieved data with a python script, formatting to GeoJSON. <br>
+```bash
+python data/scripts/clean_osm_data.py
+```
+
+We can visualize the cleaned data on [geojson.io](https://geojson.io) website, by dragging the GeoJSOnon the page !
