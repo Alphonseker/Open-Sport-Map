@@ -8,9 +8,7 @@ An open-source mapping platform for locating freely accessible sports facilities
 - **Backend :** Python
 - **Frontend (Web):** [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
 
-## **Quick Start (Local)**
-
-## **Project Evolution in the Future**
+## **Project Roadmap**
 
 ```
 V1
@@ -38,21 +36,61 @@ V2
 └── contributions
 ```
 
-## **Whole Process Explanation**
+## **Quick Start (Local)**
 
-### **1. OSM data ETL segment**
+### **1. Prerequisites**
+- Docker Desktop installed and running
+- Python 3.11 or more installed
+
+### **2. Environment Setup**
+
+Create and activate the isolated Python virtual evironment, on Windows Powershell:
+```bash
+python -m venv .venv
+```
+```bash
+.venv\Scripts\Activate.ps1
+```
+Install project dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+### **3. Start Spacial Database***
+Start the PostgreSQL/PostGIS container and initialize the schema:
+
+```bash
+docker-compose u -d
+```
+```bash
+Get-Content backend/sql/init.sql | docker exec -i open_sport_map_db psql -U spotter -d open_sport_map
+```
+
+### **4. Run the data pipeline**
+
+```bash
+python data/scripts/fetch_osm_data.py
+python data/scripts/clean_osm_data.py
+python data/scripts/load_geojson_to_postgis.py
+```
+
+## **Step-by-Step Achitecture**
+
+### **1. OSM data ETL pipeline**
 #### **1.1 Fetch data - python scrip**t
 
-Retrieving ```node``` (isolated point of interests) and ```way``` (polygons and surfaces) that have tags we are looking for:<br>
+Retrieving ```node``` (isolated point of interests) and ```wa y``` (polygons and surfaces) that have tags we are looking for:<br>
 - ```leisure=pitch```<sub>*[more info](https://wiki.openstreetmap.org/wiki/Tag:leisure=pitch)*</sub>
 - ```leisure=fitness_station```<sub>*[more info](https://wiki.openstreetmap.org/wiki/Tag:leisure=fitness_station)*</sub>
 - ```leisure=track```<sub>*[more info](https://wiki.openstreetmap.org/wiki/Tag:leisure=track)*</sub>
 
-Using Overpass Turbo, we can get a preview of the data we are retrieving ! See a short example [here](https://overpass-turbo.eu/s/2wZq), and hot the "Execute" button.
+Thequery uses ``out center tags;`` to automatically calculate the centroid coordinates for polygons (``way``), simplifying point ingestion.
 
-*see [Overpass Query Language Documentation](https://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide) for more global details*
+Using Overpass Turbo, we can get a preview of the data we are retrieving ! See a short example [here](https://overpass-turbo.eu/s/2wZq), and hit the "Execute" button.
 
-Execute the python script at the root of the project with the command: <br>
+*see [Overpass Query Language Documentation](https://wiki.openstreetmap.org/wiki/Overpass_API/Language_Guide) for more global details.*
+
+Execute the python script at the root of the project: <br>
 ```bash
 python data/scripts/fetch_osm_data.py
 ```
@@ -65,9 +103,11 @@ We clean the retrieved data with a python script, formatting to GeoJSON. <br>
 python data/scripts/clean_osm_data.py
 ```
 
-We can visualize the cleaned data on [geojson.io](https://geojson.io) website, by dragging the GeoJSOnon the page !
+Output data is stored at ``data/processed/facilities.geojson``, and we can visualize it on [geojson.io](https://geojson.io) website, by dragging the GeoJSON in the page !
 
-#### **1.3 Setup PostGIS**
+### **2. Spatial Storage Layer (PostgreSQL + PostGIS)**
+
+#### **2.1 Table Setup**
 
 The spatial storage layer relies on **PostgreSQL 16** with the **PostGIS** extension. Geospatial coordinates are converted and indexed as native geometry points in the standard **WGS 84 (EPSG:4326)** coordinate reference system.
 
@@ -88,8 +128,64 @@ The spatial storage layer relies on **PostgreSQL 16** with the **PostGIS** exten
 
 <br>
 
-> **Spatial Indexing & Constraints:**
-> - `CONSTRAINT unique_source_record UNIQUE (source, source_id)`: Prevents duplicate imports from the same provider while allowing multi-source deduplication.
-> - `CREATE INDEX idx_facilities_geom ON facilities USING GIST (geom)`: Generalized Search Tree (GiST) spatial index for sub-millisecond bounding box and radius queries (`ST_DWithin`).
+**Spatial Indexing & Constraints:**
+- `CONSTRAINT unique_source_record UNIQUE (source, source_id)`: Prevents duplicate imports from the same provider while allowing multi-source deduplication.
+- `CREATE INDEX idx_facilities_geom ON facilities USING GIST (geom)`: Generalized Search Tree (GiST) spatial index for sub-millisecond bounding box and radius queries (`ST_DWithin`).
 
-Then we use a python script to load the GeoJSON data into the indexed table PostGIS.
+#### **2.2 Ingesting GeoJSON (``load_geojson_to_postgis.py``)**
+
+We parse our GeoJSON data file and we use `psycopg` to insert batch records into PostGIS:
+
+```bash
+python data/scripts/load_geojson_to_postgis.py
+```
+
+#### **2.3 Verify and test the content of the table**
+
+##### **2.3.1 Verify the content of the table**
+
+See the total number of lines and a preview of the data:
+
+```powershell
+docker exec -it open_sport_map_db psql -U spotter -d open_sport_map -c "
+SELECT 
+    id, 
+    source_id, 
+    name, 
+    sport, 
+    surface, 
+    ST_AsText(geom) AS coordinates 
+FROM facilities 
+LIMIT 5;
+"
+```
+
+- `ST_AsText(geom)` convert the internal binary format of PostGIS into readable text `Point (lon lat)`
+
+##### **2.3.2 Test a proximity spacial request**
+
+In this section we will try the powerful function `ST_DWithin`:
+For the experiment, we select a random point in the center of Valenciennes (french city).
+- longitude: 3.523
+- latitude:  50.358
+
+We try to find facilities within 800 meters from our point, sorted by proximity with the exact ditsance calculated:
+
+```bash
+docker exec -it open_sport_map_db psql -U spotter -d open_sport_map -c "
+SELECT 
+    name,
+    sport,
+    surface,
+    ROUND(ST_Distance(geom::geography, ST_MakePoint(3.523, 50.358)::geography)) AS distance_meters
+FROM facilities
+WHERE ST_DWithin(geom::geography, ST_MakePoint(3.523, 50.358)::geography, 800)
+ORDER BY distance_meters ASC;
+"
+```
+
+- `ST_MakePoint(lon, lat)` create a geometrical point
+- `::geography` converts WGS 84 geometry (in degrees) to spherical geography. This allows PostGIS to calculate distances directly in **actual meters on the Earth** instead of angular units.
+- `ST_DWithin(..., 800)` filters results withi 800 meter distance
+- `ST_Distance(...)` work out the exact distance
+
