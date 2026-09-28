@@ -66,3 +66,30 @@ python data/scripts/clean_osm_data.py
 ```
 
 We can visualize the cleaned data on [geojson.io](https://geojson.io) website, by dragging the GeoJSOnon the page !
+
+#### **1.3 Setup PostGIS**
+
+The spatial storage layer relies on **PostgreSQL 16** with the **PostGIS** extension. Geospatial coordinates are converted and indexed as native geometry points in the standard **WGS 84 (EPSG:4326)** coordinate reference system.
+
+**Table: `facilities`**
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | `SERIAL` | `PRIMARY KEY` | Internal unique identifier |
+| `source` | `VARCHAR(50)` | `NOT NULL` | Data provider (e.g. `osm`, `res_france`) |
+| `source_id` | `VARCHAR(100)` | `NOT NULL` | Original identifier within the source platform |
+| `name` | `VARCHAR(255)` | | Facility name (if available) |
+| `sport` | `VARCHAR(100)` | | Normalized sport category (`basketball`, `fitness`, etc.) |
+| `surface` | `VARCHAR(100)` | | Surface material (`asphalt`, `rubber`, `grass`...) |
+| `access` | `VARCHAR(50)` | | Access permission (`yes`, `public`, `private`...) |
+| `lit` | `VARCHAR(50)` | | Night lighting status (`yes`, `no`, `unknown`) |
+| `geom` | `GEOMETRY(Point, 4326)` | `NOT NULL` | Point geometry in WGS 84 |
+| `created_at` | `TIMESTAMPTZ` | `DEFAULT NOW()` | Record insertion timestamp |
+
+<br>
+
+> **Spatial Indexing & Constraints:**
+> - `CONSTRAINT unique_source_record UNIQUE (source, source_id)`: Prevents duplicate imports from the same provider while allowing multi-source deduplication.
+> - `CREATE INDEX idx_facilities_geom ON facilities USING GIST (geom)`: Generalized Search Tree (GiST) spatial index for sub-millisecond bounding box and radius queries (`ST_DWithin`).
+
+Then we use a python script to load the GeoJSON data into the indexed table PostGIS.
