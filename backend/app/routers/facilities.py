@@ -72,3 +72,76 @@ def get_nearby_facilities(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
+
+@router.get("/bbox")
+def get_facilities_in_bbox(
+    min_lon: float = Query(..., ge=-180.0, le=180.0, description="Minimum longitude (West)"),
+    min_lat: float = Query(..., ge=-90.0, le=90.0, description="Minimum latitude (South)"),
+    max_lon: float = Query(..., ge=-180.0, le=180.0, description="Maximum longitude (East)"),
+    max_lat: float = Query(..., ge=-90.0, le=90.0, description="Maximum latitude (North)"),
+    sport: Optional[str] = Query(None, description="Optional sport filter")
+):
+    """
+    Retrieve facilities inside a bounding box envelope.
+    Uses PostGIS spatial index operator (&&) with ST_MakeEnvelope.
+    """
+    if min_lon >= max_lon or min_lat >= max_lat:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid bounding box: min coordinates must be strictly less than max coordinates."
+        )
+
+    # ST_MakeEnvelope(minX, minY, maxX, maxY, srid)
+    # The '&&' operator leverages the GiST index directly for maximum lookup speed
+    query = """
+    SELECT 
+        id,
+        source,
+        source_id,
+        name,
+        sport,
+        surface,
+        access,
+        lit,
+        ST_AsGeoJSON(geom)::json AS geojson_geom
+    FROM facilities
+    WHERE geom && ST_MakeEnvelope(%s, %s, %s, %s, 4326)
+    """
+    params = [min_lon, min_lat, max_lon, max_lat]
+
+    if sport:
+        query += " AND LOWER(sport) LIKE LOWER(%s)"
+        params.append(f"%{sport}%")
+
+    query += " LIMIT 200;"
+
+    try:
+        with get_db_cursor() as cur:
+            cur.execute(query, params)
+            rows = cur.fetchall()
+
+        features = [
+            {
+                "type": "Feature",
+                "geometry": row["geojson_geom"],
+                "properties": {
+                    "id": row["id"],
+                    "source": row["source"],
+                    "source_id": row["source_id"],
+                    "name": row["name"],
+                    "sport": row["sport"],
+                    "surface": row["surface"],
+                    "access": row["access"],
+                    "lit": row["lit"]
+                }
+            }
+            for row in rows
+        ]
+
+        return {
+            "type": "FeatureCollection",
+            "features": features
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database query error: {str(e)}")
