@@ -66,6 +66,9 @@ docker-compose u -d
 Get-Content backend/sql/init.sql | docker exec -i open_sport_map_db psql -U spotter -d open_sport_map
 ```
 
+> [!NOTE]
+> Please note that the PostGIS container will launch on port 5433
+
 ### **4. Run the data pipeline**
 
 ```bash
@@ -189,3 +192,15 @@ ORDER BY distance_meters ASC;
 - `ST_DWithin(..., 800)` filters results withi 800 meter distance
 - `ST_Distance(...)` work out the exact distance
 
+## **3. API**
+
+- **Python FastAPI**
+- **2 endpoints:**
+  - Lookup by radius (`GET`)
+    - *Parameters*: `lat`, `long` and `radius` and optionnally `sport`.
+    - *Usage*: Button "*Locate me*" or Address research.
+    - *Powered by*: `ST_DWithin` with `geography` conversion for exact metrics.
+  - Lookup by visual impact (`GET`)
+    - *Parameters*: `min_lat`, `min_lon`, `max_lon` and `max_lat`, bounding box of the user's screen.
+    - *Usage*: When the user moves around the map, the API only show points that can be visible at the current state.
+    - *Powered by*: `ST_MakeEnvelope` and the spacial operator `&&`, exploiting the GiST index.
