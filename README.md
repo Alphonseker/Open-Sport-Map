@@ -12,28 +12,25 @@ An open-source mapping platform for locating freely accessible sports facilities
 
 ```
 V1
-│
-├── OSM data
-├── PostgreSQL/PostGIS
-├── Python API
-├── web map
-├── geographical research
-└── sport filters
+       │
+- [x] OSM data
+- [x] PostgreSQL/PostGIS
+- [x] Python API
+- [ ] web map
+- [ ] geographical research
+- [ ] sport filters
        │
        ▼
 V1.5
-│
-├── Data ES
-├── sources merging
-└── data clean up (no more private POI)
+       │
+- [ ] RES Data (for France data)
+- [ ] sources merging
+- [ ] data clean up (no more private POI)
        │
        ▼
 V2
-│
-├── users
-├── quality of sport infrastructure
-├── photos
-└── contributions
+       │
+- [ ] facility photos
 ```
 
 ## **Quick Start (Local)**
@@ -60,7 +57,7 @@ pip install -r requirements.txt
 Start the PostgreSQL/PostGIS container and initialize the schema:
 
 ```bash
-docker-compose u -d
+docker-compose up -d
 ```
 ```bash
 Get-Content backend/sql/init.sql | docker exec -i open_sport_map_db psql -U spotter -d open_sport_map
@@ -145,7 +142,7 @@ python data/scripts/load_geojson_to_postgis.py
 
 #### **2.3 Verify and test the content of the table**
 
-##### **2.3.1 Verify the content of the table**
+#### **2.3.1 Verify the content of the table**
 
 See the total number of lines and a preview of the data:
 
@@ -165,7 +162,7 @@ LIMIT 5;
 
 - `ST_AsText(geom)` convert the internal binary format of PostGIS into readable text `Point (lon lat)`
 
-##### **2.3.2 Test a proximity spacial request**
+#### **2.3.2 Test a proximity spacial request**
 
 In this section we will try the powerful function `ST_DWithin`:
 For the experiment, we select a random point in the center of Valenciennes (french city).
@@ -192,15 +189,38 @@ ORDER BY distance_meters ASC;
 - `ST_DWithin(..., 800)` filters results withi 800 meter distance
 - `ST_Distance(...)` work out the exact distance
 
-## **3. API**
+### **3. Backend API Layer (FastAPI)**
 
-- **Python FastAPI**
-- **2 endpoints:**
-  - Lookup by radius (`GET`)
-    - *Parameters*: `lat`, `long` and `radius` and optionnally `sport`.
-    - *Usage*: Button "*Locate me*" or Address research.
-    - *Powered by*: `ST_DWithin` with `geography` conversion for exact metrics.
-  - Lookup by visual impact (`GET`)
-    - *Parameters*: `min_lat`, `min_lon`, `max_lon` and `max_lat`, bounding box of the user's screen.
-    - *Usage*: When the user moves around the map, the API only show points that can be visible at the current state.
-    - *Powered by*: `ST_MakeEnvelope` and the spacial operator `&&`, exploiting the GiST index.
+The API bridges the PostGIS spatial database and the web interface, exposing endpoints that directly return RFC 7946 GeoJSON collections.
+
+#### **3.1 Start the Server**
+
+Run Uvicorn from the project root with hot-reload enabled:
+
+```bash
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+- **API Base URL:** `http://127.0.0.1:8000`
+- **Interactive OpenAPI Documentation (Swagger UI):** `http://127.0.0.1:8000/docs`
+
+#### **3.2 Endpoints**
+
+#### **3.2.1. Radius Search (`GET /api/v1/facilities/nearby`)**
+Searches for facilities within a given distance from a central geographic point.
+
+- **Query Parameters:**
+  - `lat`: Latitude in decimal degrees (-90 to 90).
+  - `lon`: Longitude in decimal degrees (-180 to 180).
+  - `radius` (default: `1000`): Search radius in meters (50 to 10 000 m).
+  - `sport`: Filter by sport name (e.g.: basketball, fitness).
+- **Spatial Mechanism:** PostGIS `ST_DWithin` evaluated on spherical `geography` types with `ST_Distance` calculation.
+
+#### **3.2.2. Bounding Box Viewport (`GET /api/v1/facilities/bbox`)**
+Retrieves all facilities located within the current map viewport as the user pans or zooms.
+
+- **Query Parameters:**
+  - `min_lon`, `min_lat`: South-West bounding coordinate.
+  - `max_lon`, `max_lat`: North-East bounding coordinate.
+  - `sport`: Sport type filter.
+- **Spatial Mechanism:** Evaluates envelope intersections using `ST_MakeEnvelope` and the high-speed spatial overlap operator `&&` powered by the GiST index.
