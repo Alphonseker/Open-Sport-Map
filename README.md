@@ -10,29 +10,23 @@ An open-source mapping platform for locating freely accessible sports facilities
 
 ## **Project Roadmap**
 
-```
-V1
-       │
+V1 <br>
 - [x] OSM data
 - [x] PostgreSQL/PostGIS
 - [x] Python API
 - [x] web map
 - [x] geographical research
-- [x] sport filters
-       │
-       ▼
-V1.5
-       │
+- [x] sport filters<br>
+
+V1.5<br>
+
 - [ ] Augment dataset
 - [ ] RES Data (for France data)
 - [ ] sources merging
-- [ ] data clean up (no more private POI)
-       │
-       ▼
-V2
-       │
+- [ ] data clean up (no more private POI)<br>
+
+V2<br>
 - [ ] facility photos
-```
 
 ## **Quick Start (Local)**
 
