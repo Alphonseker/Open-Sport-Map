@@ -16,13 +16,14 @@ V1
 - [x] OSM data
 - [x] PostgreSQL/PostGIS
 - [x] Python API
-- [ ] web map
-- [ ] geographical research
-- [ ] sport filters
+- [x] web map
+- [x] geographical research
+- [x] sport filters
        │
        ▼
 V1.5
        │
+- [ ] Augment dataset
 - [ ] RES Data (for France data)
 - [ ] sources merging
 - [ ] data clean up (no more private POI)
@@ -224,3 +225,30 @@ Retrieves all facilities located within the current map viewport as the user pan
   - `max_lon`, `max_lat`: North-East bounding coordinate.
   - `sport`: Sport type filter.
 - **Spatial Mechanism:** Evaluates envelope intersections using `ST_MakeEnvelope` and the high-speed spatial overlap operator `&&` powered by the GiST index.
+
+### **4. Web Map (Frontend)**
+
+The frontend is an interactive single-page application built with **MapLibre GL JS**, an open-source WebGL-accelerated mapping engine. It consumes the FastAPI backend directly, dynamically fetching and displaying GeoJSON data according to the current map view.
+
+#### **4.1 How It Works**
+
+- **Vector Rendering:** Renders map tiles and data points natively on the client GPU for high-frame-rate navigation.
+- **Dynamic Bounding Box Ingestion:** Whenever the user pans or zooms, the map calculates its bounding coordinates (`min_lon`, `min_lat`, `max_lon`, `max_lat`) and queries the `/api/v1/facilities/bbox` endpoint.
+- **Categorical Styling:** Facilities are visually classified by sport type (e.g. basketball, fitness, soccer, running) using dedicated color schemes.
+- **Popups & Geolocation:** Clicking on any point displays detailed facility metadata (name, surface material, lighting status). A "Locate me" control triggers HTML5 browser geolocation to pan directly to the user's location.
+
+#### **4.2 Running the Frontend Locally**
+
+1. Ensure the backend API is running on port 8000:
+```bash
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+2. Open a separate terminal, navigate to the `frontend/` directory, and start a local HTTP server:
+```bash
+cd frontend
+python -m http.server 3000
+```
+
+3. Open your browser and access the interactive map at:
+   **`http://localhost:3000`**

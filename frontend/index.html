@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Open Sport Map</title>
+  
+  <!-- MapLibre GL JS CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- Floating control panel -->
+  <aside class="control-panel">
+    <h1>Open Sport Map</h1>
+    <p class="subtitle">Find a sport facility near you</p>
+
+    <div class="field">
+      <label for="sport-filter">Filtrer by sport</label>
+      <select id="sport-filter">
+        <option value="">All sports</option>
+        <option value="basketball">Basketball</option>
+        <option value="soccer">Football</option>
+        <option value="fitness">Street Workout / Fitness</option>
+        <option value="running">Athletics Track</option>
+        <option value="tennis">Tennis</option>
+        <option value="volleyball">Volleyball</option>
+        <option value="skatepark">Skatepark</option>
+        <option value="swimming">Tennis Table</option>
+      </select>
+    </div>
+
+    <button id="locate-btn" class="btn primary">Find nearby</button>
+
+    <div class="stats">
+      <span id="spots-count">0</span>
+      <span>facilities found</span> 
+    </div>
+  </aside>
+
+  <!-- Map container -->
+  <div id="map"></div>
+
+  <!-- MapLibre GL JS Script -->
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
