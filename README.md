@@ -8,6 +8,8 @@ An open-source mapping platform for locating freely accessible sports facilities
 - **Backend :** Python
 - **Frontend (Web):** [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
 
+![Open Sport Map Demo](docs/assets/demo.gif)
+
 ## **Project Roadmap**
 
 V1 <br>
@@ -20,13 +22,11 @@ V1 <br>
 
 V1.5<br>
 
-- [ ] Augment dataset
+- [ ] augment dataset
 - [ ] RES Data (for France data)
 - [ ] sources merging
 - [ ] data clean up (no more private POI)<br>
-
-V2<br>
-- [ ] facility photos
+- [ ] search by address
 
 ## **Quick Start (Local)**
 
@@ -233,16 +233,16 @@ The frontend is an interactive single-page application built with **MapLibre GL 
 
 #### **4.2 Running the Frontend Locally**
 
-1. Ensure the backend API is running on port 8000:
+Ensure the backend API is running on port 8000:
 ```bash
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-2. Open a separate terminal, navigate to the `frontend/` directory, and start a local HTTP server:
+Open a separate terminal, navigate to the `frontend/` directory, and start a local HTTP server:
 ```bash
 cd frontend
 python -m http.server 3000
 ```
 
-3. Open your browser and access the interactive map at:
-   **`http://localhost:3000`**
+Open your browser and access the interactive map at:<br>
+**[`http://localhost:3000`](http://localhost:3000)**
