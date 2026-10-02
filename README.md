@@ -8,7 +8,11 @@ An open-source mapping platform for locating freely accessible sports facilities
 - **Backend :** Python
 - **Frontend (Web):** [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/)
 
+<center>
+
 ![Open Sport Map Demo](docs/assets/demo.gif)
+
+</center>
 
 ## **Project Roadmap**
 
