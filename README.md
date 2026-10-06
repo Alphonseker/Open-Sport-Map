@@ -14,7 +14,7 @@
 
 ---
 
-## What is Open Sport Map?
+## **What is Open Sport Map?**
 
 Finding accessible, free-to-use outdoor public sports facilities is often frustrating: data is fragmented, commercial apps focus on paid fitness clubs, and open data portals lack intuitive visual interfaces.
 
@@ -25,7 +25,7 @@ Finding accessible, free-to-use outdoor public sports facilities is often frustr
 
 ---
 
-## Demo Preview
+## **Demo Preview**
 
 <center>
 
@@ -35,7 +35,7 @@ Finding accessible, free-to-use outdoor public sports facilities is often frustr
 
 ---
 
-## How it Works
+## **How it Works**
 
 The project connects three core software layers into an automated pipeline:
 
@@ -48,7 +48,7 @@ The project connects three core software layers into an automated pipeline:
 
 ---
 
-## Project Roadmap
+## **Project Roadmap**
 
 V1 <br>
 - [x] OpenStreetMap automated ETL pipeline (Valenciennes area)
@@ -64,30 +64,35 @@ V1.5<br>
 - [ ] Spatial deduplication and merging algorithms
 - [ ] POI filtering (no more private POI)<br>
 - [ ] Search by address
+- [ ] Add the exact user's location
 
 V2<br>
 - [ ] Add more European countries
 - [ ] Add more Worldwide countries
+- [ ] Add a path-finding algorithm to indicate directions
 
 ---
 
-## [Technical Documentation](docs/ARCHITECTURE.md) (click on the title!)
+## **Technical Documentation**
+
+**V1**: Click **[here](docs/V1.md)** to access the detailed documentation of the first part of the project.<br>
+**V1.5**: Click **[there](docs/V1_5.md)** to access the detailed documentation of the second part of the project.
 
 
-## Local Setup
+## **Local Setup**
 
-### 1. Prerequisites
+### **1. Prerequisites**
 - [Docker Desktop](https://www.docker.com/) installed and running
 - Python 3.11+ installed
 
-### 2. Environment Setup
+### **2. Environment Setup**
 ```powershell
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
-### 3. Spatial Database (PostGIS)
+### **3. Spatial Database (PostGIS)**
 ```powershell
 # Launch the container (mapped to host port 5433)
 docker compose up -d
@@ -96,24 +101,29 @@ docker compose up -d
 Get-Content backend/sql/init.sql | docker exec -i open_sport_map_db psql -U spotter -d open_sport_map
 ```
 
-### 4. Data Extraction & Ingestion Pipeline
+> [!NOTE]
+> Please note that the PostGIS container will launch on port 5433
+
+### **4. Data Extraction & Ingestion Pipeline**
 ```powershell
 python data/scripts/fetch_osm_data.py
 python data/scripts/clean_osm_data.py
 python data/scripts/load_geojson_to_postgis.py
 ```
 
-### 5. Running the Backend API (FastAPI)
+### **5. Running the Backend API (FastAPI)**
 ```powershell
 uvicorn backend.app.main:app --reload --port 8000
 ```
 - API Base URL: `http://127.0.0.1:8000`
 - Interactive OpenAPI Docs (Swagger UI): `http://127.0.0.1:8000/docs`
 
-### 6. Running the Frontend (MapLibre Web Map)
+### **6. Running the Frontend (MapLibre Web Map)**
 In a separate terminal:
 ```powershell
 cd frontend
 python -m http.server 3000
 ```
 Open your browser at: **`http://localhost:3000`**
+
+---
