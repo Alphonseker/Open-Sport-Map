@@ -1,11 +1,10 @@
+import argparse
 import json
 import logging
 from pathlib import Path
 import psycopg
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-
-GEOJSON_PATH = Path("data/processed/facilities.geojson")
 
 DB_CONFIG = {
     "dbname": "open_sport_map",
@@ -15,18 +14,18 @@ DB_CONFIG = {
     "port": 5433
 }
 
-def load_and_insert_facilities():
-    if not GEOJSON_PATH.exists():
-        logging.error(f"GeoJSON file not found at {GEOJSON_PATH}. Run clean_osm_data.py first.")
+def load_and_insert_facilities(geojson_path: Path):
+    if not geojson_path.exists():
+        logging.error(f"File not found: {geojson_path}")
         return
 
-    logging.info(f"Reading GeoJSON from {GEOJSON_PATH}...")
-    with open(GEOJSON_PATH, "r", encoding="utf-8") as f:
+    logging.info(f"Reading GeoJSON file: {geojson_path}...")
+    with open(geojson_path, "r", encoding="utf-8") as f:
         geojson_data = json.load(f)
 
     features = geojson_data.get("features", [])
     if not features:
-        logging.warning("No features found in GeoJSON file.")
+        logging.warning("No features found in the GeoJSON file.")
         return
 
     records = []
@@ -65,13 +64,16 @@ def load_and_insert_facilities():
     try:
         with psycopg.connect(**DB_CONFIG) as conn:
             with conn.cursor() as cur:
-                # executemany optimizes multi-row inserts in a single transaction
                 cur.executemany(insert_query, records)
             conn.commit()
-        logging.info(f"Successfully inserted/updated {len(records)} records in PostgreSQL/PostGIS.")
+        logging.info(f"Success: {len(records)} facilities inserted/updated in PostGIS.")
 
     except Exception as e:
-        logging.error(f"Failed to insert records into database: {e}")
+        logging.error(f"Failed to insert into database: {e}")
 
 if __name__ == "__main__":
-    load_and_insert_facilities()
+    parser = argparse.ArgumentParser(description="Ingest normalized GeoJSON into PostGIS.")
+    parser.add_argument("-i", "--input", type=Path, default=Path("data/processed/facilities.geojson"), help="Path to the GeoJSON file to insert into PostGIS")
+    args = parser.parse_args()
+    
+    load_and_insert_facilities(args.input)

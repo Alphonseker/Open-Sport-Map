@@ -113,7 +113,7 @@ def get_facilities_in_bbox(
         query += " AND LOWER(sport) LIKE LOWER(%s)"
         params.append(f"%{sport}%")
 
-    query += " LIMIT 200;"
+    query += " LIMIT 1000;"
 
     try:
         with get_db_cursor() as cur:

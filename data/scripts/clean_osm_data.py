@@ -1,88 +1,147 @@
+import argparse
 import json
 import logging
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-RAW_DATA_PATH = Path("data/raw/osm_sample.json")
-OUTPUT_GEOJSON_PATH = Path("data/processed/facilities.geojson")
+def compute_centroid(geometry: dict) -> list[float]:
+    """Calculates a [lon, lat] centroid for Point, Polygon, or MultiPolygon."""
+    geom_type = geometry.get("type")
+    coords = geometry.get("coordinates", [])
 
-def extract_coordinates(element: dict) -> tuple[float, float] | None:
-    """Extract (longitude, latitude) regardless of whether element is a node or way."""
-    if element.get("type") == "node" and "lon" in element and "lat" in element:
-        return element["lon"], element["lat"]
-    
-    if element.get("type") == "way" and "center" in element:
-        center = element["center"]
-        return center.get("lon"), center.get("lat")
-    
+    if geom_type == "Point":
+        return coords
+
+    if geom_type == "Polygon":
+        # Exterior ring is coords[0]
+        ring = coords[0]
+        lons = [pt[0] for pt in ring]
+        lats = [pt[1] for pt in ring]
+        return [sum(lons) / len(lons), sum(lats) / len(lats)]
+
+    if geom_type == "MultiPolygon":
+        # Average of the exterior ring of the first polygon
+        ring = coords[0][0]
+        lons = [pt[0] for pt in ring]
+        lats = [pt[1] for pt in ring]
+        return [sum(lons) / len(lons), sum(lats) / len(lats)]
+
     return None
 
-def normalize_sport_tag(tags: dict) -> str:
-    """Determine the primary sport category or fallback to leisure type."""
-    if "sport" in tags:
-        return tags["sport"]
-    if tags.get("leisure") == "fitness_station":
-        return "fitness"
-    if tags.get("leisure") == "track":
-        return "running"
-    return "multi"
+def normalise_feature(raw_item: dict, index: int) -> dict:
+    """Normalises an item coming either from Overpass JSON or raw Osmium GeoJSON."""
+    # 1. Extraction of properties / tags
+    if "properties" in raw_item:  # GeoJSON feature (from Osmium)
+        props = raw_item.get("properties", {})
+        osm_id = props.get("@id") or raw_item.get("id") or props.get("id")
+        geometry = raw_item.get("geometry", {})
+        centroid = compute_centroid(geometry)
 
-def process_osm_element(element: dict) -> dict | None:
-    """Transform an OSM element into a standardized GeoJSON Feature."""
-    coords = extract_coordinates(element)
-    if not coords or None in coords:
+        # ID extraction with fallback to auto-generated ID
+        osm_id = (
+            props.get("@id")
+            or raw_item.get("id")
+            or props.get("id")
+            or props.get("osm_id")
+        )
+        if not osm_id:
+            osm_id = f"auto_{index}"
+
+    else:  # Overpass element
+        props = raw_item.get("tags", {})
+        osm_id = raw_item.get("id")
+        if "center" in raw_item:
+            centroid = [raw_item["center"]["lon"], raw_item["center"]["lat"]]
+        elif "lon" in raw_item and "lat" in raw_item:
+            centroid = [raw_item["lon"], raw_item["lat"]]
+        else:
+            centroid = None
+
+    if not centroid or not osm_id:
         return None
 
-    tags = element.get("tags", {})
-    lon, lat = coords
+    # 2. Tag normalisation
+    leisure = props.get("leisure")
+    sport = props.get("sport")
 
-    # GeoJSON Feature specification (RFC 7946)
+    if not sport:
+        if leisure == "fitness_station":
+            sport = "fitness"
+        elif leisure == "track":
+            sport = "running"
+        elif leisure == "pitch":
+            sport = "multisport"
+        else:
+            sport = "unknown"
+
     return {
         "type": "Feature",
         "geometry": {
             "type": "Point",
-            "coordinates": [lon, lat]
+            "coordinates": [round(centroid[0], 6), round(centroid[1], 6)]
         },
         "properties": {
-            "osm_id": element.get("id"),
-            "osm_type": element.get("type"),
-            "name": tags.get("name", "Unnamed Facility"),
-            "leisure": tags.get("leisure", "pitch"),
-            "sport": normalize_sport_tag(tags),
-            "surface": tags.get("surface", "unknown"),
-            "access": tags.get("access", "yes"),
-            "lit": tags.get("lit", "unknown")
+            "osm_id": str(osm_id),
+            "name": props.get("name"),
+            "sport": sport.lower() if sport else None,
+            "surface": props.get("surface"),
+            "access": props.get("access", "public"),
+            "lit": props.get("lit", "unknown")
         }
     }
 
-def clean_and_convert_to_geojson():
-    if not RAW_DATA_PATH.exists():
-        logging.error(f"Input file not found at {RAW_DATA_PATH}. Run fetch_osm_data.py first.")
+def clean_data(input_path: Path, output_path: Path):
+    if not input_path.exists():
+        logging.error(f"File not found: {input_path}")
         return
 
-    logging.info(f"Loading raw OSM data from {RAW_DATA_PATH}...")
-    with open(RAW_DATA_PATH, "r", encoding="utf-8") as f:
-        raw_content = json.load(f)
+    logging.info(f"Reading and cleaning from: {input_path}")
+    raw_features = []
 
-    elements = raw_content.get("elements", [])
-    features = []
+    # Handle both full JSON and line-delimited JSON
+    with open(input_path, "r", encoding="utf-8") as f:
+        first_char = f.read(1)
+        f.seek(0)
+        if first_char == "{":
+            try:
+                data = json.load(f)
+                if "features" in data:
+                    raw_features = data["features"]
+                elif "elements" in data:
+                    raw_features = data["elements"]
+            except json.JSONDecodeError:
+                f.seek(0)
+                raw_features = [json.loads(line) for line in f if line.strip()]
+        else:
+            raw_features = [json.loads(line) for line in f if line.strip()]
 
-    for el in elements:
-        feature = process_osm_element(el)
-        if feature:
-            features.append(feature)
+    cleaned_features = []
+    seen_ids = set()
 
-    geojson_output = {
+    for idx, item in enumerate(raw_features):
+        feat = normalise_feature(item, idx)
+        if feat:
+            osm_id = feat["properties"]["osm_id"]
+            if osm_id not in seen_ids:
+                seen_ids.add(osm_id)
+                cleaned_features.append(feat)
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    geojson_out = {
         "type": "FeatureCollection",
-        "features": features
+        "features": cleaned_features
     }
 
-    OUTPUT_GEOJSON_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_GEOJSON_PATH, "w", encoding="utf-8") as f:
-        json.dump(geojson_output, f, ensure_ascii=False, indent=2)
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(geojson_out, f, ensure_ascii=False, indent=2)
 
-    logging.info(f"Successfully processed {len(features)} facilities into {OUTPUT_GEOJSON_PATH}")
+    logging.info(f"{len(cleaned_features)} facilities cleaned and saved to {output_path}")
 
 if __name__ == "__main__":
-    clean_and_convert_to_geojson()
+    parser = argparse.ArgumentParser(description="Clean and normalise raw OSM sports facility data.")
+    parser.add_argument("-i", "--input", type=Path, default=Path("data/raw/osm_sample.json"), help="Path to the raw source file")
+    parser.add_argument("-o", "--output", type=Path, default=Path("data/processed/facilities.geojson"), help="Path to the output GeoJSON file")
+    
+    args = parser.parse_args()
+    clean_data(args.input, args.output)
