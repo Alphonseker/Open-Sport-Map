@@ -62,7 +62,7 @@ V1.5<br>
 - [ ] Extend data to all of France
 - [ ] Ingestion of the French National Sports Census (*Data RES*)
 - [ ] Spatial deduplication and merging algorithms
-- [ ] POI filtering (no more private POI)<br>
+- [ ] POI filtering (no more private POI)
 - [ ] Search by address
 - [ ] Add the exact user's location
 
