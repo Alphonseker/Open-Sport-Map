@@ -91,8 +91,8 @@ map.on("click", "facilities-circles", (e) => {
     <div class="popup-title">${props.name || "Sport court"}</div>
     <div class="popup-meta">
       <strong>Sport :</strong> ${props.sport || "Not specified"}<br/>
-      <strong>Revêtement :</strong> ${props.surface || "Not specified"}<br/>
-      <strong>Éclairage :</strong> ${props.lit === "yes" ? "Yes" : "No or unknown"}
+      <strong>Surface :</strong> ${props.surface || "Not specified"}<br/>
+      <strong>Enlightement :</strong> ${props.lit === "yes" ? "Yes" : "No or unknown"}
     </div>
   `;
 
